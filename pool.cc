@@ -40,11 +40,11 @@ void ThreadPool::SubmitTask(const std::string &name, Task *task) {
     std::unique_lock<std::mutex> lk(mtx_);
     if (stopping_) {
         // Pool stopping: ignore new task (assignment guarantees this shouldn't happen).
-        // Leave ownership with caller to avoid double delete scenarios.
+        // Leave ownership with caller to avoid double delete (caller may free after SubmitTask).
+        // Caller is responsible for deleting the task pointer if submission fails.
         lk.unlock();
         TP_LOG("Cannot added task to queue");
-        delete task; // free the task to avoid leaking user memory
-        return;       // silently ignore
+        return; // ignore
     }
     if (tasks_.find(name) != tasks_.end()) {
         lk.unlock();

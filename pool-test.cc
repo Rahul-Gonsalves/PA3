@@ -54,7 +54,9 @@ int main(int argc, char **argv) {
     pool.Stop();
 
     // Post-stop submission should be ignored with message.
-    pool.SubmitTask("after-stop", new SleepTask(10));
+    auto *after = new SleepTask(10);
+    pool.SubmitTask("after-stop", after);
+    delete after; // caller cleans up since pool rejected
 
     return 0;
 }
