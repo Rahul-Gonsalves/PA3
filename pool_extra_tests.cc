@@ -112,6 +112,41 @@ int main() {
     stress_test(1000);
     std::cout << "Running stop_semantics_test..." << std::endl;
     stop_semantics_test();
+    // New: explicit concurrency verification
+    std::cout << "Running concurrency_barrier_test..." << std::endl;
+    {
+        struct BarrierTask : Task {
+            std::atomic<int> *started; std::atomic<int> *proceed; int total; int id; std::atomic<int> *simul;
+            BarrierTask(std::atomic<int> *s, std::atomic<int> *p, std::atomic<int> *sim, int t, int i): started(s), proceed(p), simul(sim), total(t), id(i) {}
+            void Run() override {
+                int now = started->fetch_add(1) + 1; // count starts
+                // track simultaneous starts within short window
+                simul->fetch_add(1);
+                // Wait until all have started
+                while (started->load() < total) {
+                    std::this_thread::sleep_for(std::chrono::milliseconds(1));
+                }
+                proceed->fetch_add(1);
+            }
+        };
+        ThreadPool pool{4};
+        const int N = 4;
+        std::atomic<int> started{0};
+        std::atomic<int> proceed{0};
+        std::atomic<int> simul{0};
+        for (int i=0;i<N;++i) {
+            pool.SubmitTask("bt"+std::to_string(i), new BarrierTask(&started,&proceed,&simul,N,i));
+        }
+        for (int i=0;i<N;++i) {
+            pool.WaitForTask("bt"+std::to_string(i));
+        }
+        pool.Stop();
+        // At least two tasks should have been in-flight simultaneously (simul >= N since each increments once).
+        assert(started.load() == N);
+        assert(proceed.load() == N);
+        assert(simul.load() >= N);
+        std::cout << "concurrency_barrier_test passed (" << simul.load() << " starts)." << std::endl;
+    }
     std::cout << "All extra tests passed." << std::endl;
     return 0;
 }

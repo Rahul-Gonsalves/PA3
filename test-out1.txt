@@ -1,16 +1,28 @@
 Added task first
 Started task first
 Added task second
-Added task third
-Called Stop()
 Started task second
-Stopping thread 136047101998656Started task 
-third
-Finished task first
-Stopping thread 136047093605952
-Finished task second
+Added task third
+Added task fourth
+Started task third
+Started task fourth
+Added task b0
+Added task b1
+Added task b2
+Started task b0
 Finished task third
-Stopping thread 136047085213248
-Stopping thread 136047076820544
-Stopping thread 136047068427840
+Started task b1
+Finished task first
+Started task b2
+Finished task second
+Finished task fourth
+Finished task b1
+Finished task b0
+Finished task b2
+Called Stop()
+Stopping thread 131892398519872
+Stopping thread 131892390127168
+Stopping thread 131892381734464
+Stopping thread 131892373341760
+Stopping thread 131892364949056
 Cannot added task to queue

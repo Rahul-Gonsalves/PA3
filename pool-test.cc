@@ -5,33 +5,56 @@
 #include <sstream>
 #include <vector>
 
-struct EmptyTask : Task {
+struct SleepTask : Task {
+    int ms; explicit SleepTask(int m): ms(m) {}
+    void Run() override { std::this_thread::sleep_for(std::chrono::milliseconds(ms)); }
+};
+
+// Barrier task to force concurrent start; all tasks wait until N have started.
+struct BarrierTask : Task {
+    std::atomic<int> *started; int total; int work_ms;
+    BarrierTask(std::atomic<int> *s, int t, int w): started(s), total(t), work_ms(w) {}
     void Run() override {
-        std::this_thread::sleep_for(std::chrono::seconds(2));
+        int c = started->fetch_add(1) + 1;
+        // spin lightly until all started (short, bounded)
+        while (started->load() < total) {
+            std::this_thread::sleep_for(std::chrono::milliseconds(1));
+        }
+        std::this_thread::sleep_for(std::chrono::milliseconds(work_ms));
     }
 };
 
 int main(int argc, char **argv) {
+    // Core pool for baseline tests
     ThreadPool pool{5};
-    
-    auto *et1 = new EmptyTask();
-    pool.SubmitTask("first", et1);
 
-    std::this_thread::sleep_for(std::chrono::milliseconds(500));
+    // Submit several simple sleep tasks rapidly (no delay) to allow concurrency.
+    pool.SubmitTask("first", new SleepTask(300));
+    pool.SubmitTask("second", new SleepTask(300));
+    pool.SubmitTask("third", new SleepTask(300));
+    pool.SubmitTask("fourth", new SleepTask(300));
 
-    auto *et2 = new EmptyTask();
-    pool.SubmitTask("second", et2);
+    // Explicit barrier group to guarantee simultaneous start of a batch.
+    std::atomic<int> started{0};
+    const int N = 3;
+    pool.SubmitTask("b0", new BarrierTask(&started, N, 200));
+    pool.SubmitTask("b1", new BarrierTask(&started, N, 200));
+    pool.SubmitTask("b2", new BarrierTask(&started, N, 200));
 
-    // ✅ Add a third task so Test 4 sees ≥3 "Started task" lines
-    auto *et3 = new EmptyTask();
-    pool.SubmitTask("third", et3);
+    // Wait for initial tasks (exercise WaitForTask API) before stopping.
+    pool.WaitForTask("first");
+    pool.WaitForTask("second");
+    pool.WaitForTask("third");
+    pool.WaitForTask("fourth");
+    pool.WaitForTask("b0");
+    pool.WaitForTask("b1");
+    pool.WaitForTask("b2");
 
+    // Stop after tasks are done to ensure all start logs flushed.
     pool.Stop();
 
-    // ✅ Submitting after Stop() still triggers the intended "Cannot added..." output
-    auto *et4 = new EmptyTask();
-    pool.SubmitTask("after-stop", et4);
-    delete et4;
+    // Post-stop submission should be ignored with message.
+    pool.SubmitTask("after-stop", new SleepTask(10));
 
     return 0;
 }

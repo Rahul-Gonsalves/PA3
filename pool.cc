@@ -43,6 +43,7 @@ void ThreadPool::SubmitTask(const std::string &name, Task *task) {
         // Leave ownership with caller to avoid double delete scenarios.
         lk.unlock();
         TP_LOG("Cannot added task to queue");
+        delete task; // free the task to avoid leaking user memory
         return;       // silently ignore
     }
     if (tasks_.find(name) != tasks_.end()) {
