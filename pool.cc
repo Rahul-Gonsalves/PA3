@@ -3,6 +3,12 @@
 #include <stdexcept>
 #include <iostream>
 
+#ifdef PA3_LOG
+#define TP_LOG(msg) do { std::cout << msg << std::endl; } while(0)
+#else
+#define TP_LOG(msg) do {} while(0)
+#endif
+
 Task::Task() = default;
 Task::~Task() = default;
 
@@ -38,7 +44,7 @@ void ThreadPool::SubmitTask(const std::string &name, Task *task) {
         // Pool stopping: ignore new task (assignment guarantees this shouldn't happen).
         // Leave ownership with caller to avoid double delete scenarios.
         lk.unlock();
-        std::cout << "Cannot added task to queue" << std::endl;
+        TP_LOG("Cannot added task to queue");
         return;       // silently ignore
     }
     if (tasks_.find(name) != tasks_.end()) {
@@ -51,7 +57,7 @@ void ThreadPool::SubmitTask(const std::string &name, Task *task) {
     tasks_[name] = info;
     queue_.push_back(name);
     lk.unlock();
-    std::cout << "Added task " << name << std::endl;
+    TP_LOG("Added task " << name);
     cv_queue_.notify_one();
 }
 
@@ -87,7 +93,7 @@ void ThreadPool::WorkerLoop() {
             info->started = true;
             // keep pointer outside lock during Run()
         }
-        std::cout << "Started task " << name << std::endl;
+        TP_LOG("Started task " << name);
         // Execute task without holding lock.
         try {
             info->task->Run();
@@ -100,7 +106,7 @@ void ThreadPool::WorkerLoop() {
             info->finished = true;
             info->cv.notify_all();
         }
-        std::cout << "Finished task " << name << std::endl;
+        TP_LOG("Finished task " << name);
     }
 }
 
@@ -110,10 +116,13 @@ void ThreadPool::Stop() {
         if (stopping_) return; // already stopping
         stopping_ = true;
     }
-    std::cout << "Called Stop()" << std::endl;
+    TP_LOG("Called Stop()");
     cv_queue_.notify_all();
     for (auto &t : threads_) {
-        if (t.joinable()) t.join();
-        std::cout << "Stopping thread " << t.get_id() << std::endl;
+        if (t.joinable()) {
+            // Print ID before join so it's still valid.
+            TP_LOG("Stopping thread " << t.get_id());
+            t.join();
+        }
     }
 }
