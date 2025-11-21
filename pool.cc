@@ -1,6 +1,7 @@
 // ThreadPool implementation
 #include "pool.h"
 #include <stdexcept>
+#include <iostream>
 
 Task::Task() = default;
 Task::~Task() = default;
@@ -37,6 +38,7 @@ void ThreadPool::SubmitTask(const std::string &name, Task *task) {
         // Pool stopping: ignore new task (assignment guarantees this shouldn't happen).
         // Leave ownership with caller to avoid double delete scenarios.
         lk.unlock();
+        std::cout << "Cannot added task to queue" << std::endl;
         return;       // silently ignore
     }
     if (tasks_.find(name) != tasks_.end()) {
@@ -49,6 +51,7 @@ void ThreadPool::SubmitTask(const std::string &name, Task *task) {
     tasks_[name] = info;
     queue_.push_back(name);
     lk.unlock();
+    std::cout << "Added task " << name << std::endl;
     cv_queue_.notify_one();
 }
 
@@ -84,6 +87,7 @@ void ThreadPool::WorkerLoop() {
             info->started = true;
             // keep pointer outside lock during Run()
         }
+        std::cout << "Started task " << name << std::endl;
         // Execute task without holding lock.
         try {
             info->task->Run();
@@ -96,6 +100,7 @@ void ThreadPool::WorkerLoop() {
             info->finished = true;
             info->cv.notify_all();
         }
+        std::cout << "Finished task " << name << std::endl;
     }
 }
 
@@ -105,8 +110,10 @@ void ThreadPool::Stop() {
         if (stopping_) return; // already stopping
         stopping_ = true;
     }
+    std::cout << "Called Stop()" << std::endl;
     cv_queue_.notify_all();
     for (auto &t : threads_) {
         if (t.joinable()) t.join();
+        std::cout << "Stopping thread " << t.get_id() << std::endl;
     }
 }

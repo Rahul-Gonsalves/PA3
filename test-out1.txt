@@ -1,0 +1,16 @@
+Added task first
+Started task first
+Added task second
+Added task third
+Called Stop()
+Started task second
+Started task third
+Finished task first
+Stopping thread thread::id of a non-executing thread
+Finished task third
+Finished task second
+Stopping thread thread::id of a non-executing thread
+Stopping thread thread::id of a non-executing thread
+Stopping thread thread::id of a non-executing thread
+Stopping thread thread::id of a non-executing thread
+Cannot added task to queue
